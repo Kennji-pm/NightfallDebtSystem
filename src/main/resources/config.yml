@@ -1,0 +1,27 @@
+# Database settings
+database:
+  type: sqlite # sqlite or mysql
+  sqlite:
+    file: debts.db
+  mysql:
+    host: localhost
+    port: 3306
+    database: nfs_debts
+    user: root
+    password: password
+
+# Default currency ID (CoinsEngine ID)
+default-currency: 'coins'
+
+# Debuff settings applied to overdue borrowers
+debuff:
+  effect: SLOW
+  level: 1
+  duration-ticks: 200
+
+# Overdue interest percent (applied periodically to remainingAmount)
+overdue-interest-percent: 1.0 # 1% per check
+
+# Scheduler interval in ticks (default 15 minutes -> 900 ticks)
+scheduler-interval-ticks: 900
+

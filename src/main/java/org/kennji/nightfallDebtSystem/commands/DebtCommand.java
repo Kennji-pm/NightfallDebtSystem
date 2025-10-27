@@ -1,0 +1,181 @@
+package org.kennji.nightfallDebtSystem.commands;
+
+import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.kennji.nightfallDebtSystem.CoinsEngineAdapter;
+import org.kennji.nightfallDebtSystem.db.DebtDAO;
+import org.kennji.nightfallDebtSystem.api.Debt;
+import org.kennji.nightfallDebtSystem.util.ColorUtils;
+
+import java.sql.SQLException;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+public class DebtCommand implements CommandExecutor {
+    private final org.kennji.nightfallDebtSystem.NightfallDebtSystem plugin;
+    private final DebtDAO dao;
+    private final CoinsEngineAdapter coins;
+
+    public DebtCommand(org.kennji.nightfallDebtSystem.NightfallDebtSystem plugin, DebtDAO dao, CoinsEngineAdapter coins) {
+        this.plugin = plugin;
+        this.dao = dao;
+        this.coins = coins;
+    }
+
+    private String msg(String key) {
+        return ColorUtils.colorize(plugin.getMessages().getString("prefix", "") + plugin.getMessages().getString("messages." + key, ""));
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (args.length == 0) {
+            sender.sendMessage(msg("list_header"));
+            return true;
+        }
+
+        switch (args[0].toLowerCase()) {
+            case "request":
+                return handleRequest(sender, args);
+            case "accept":
+                return handleAccept(sender, args);
+            case "pay":
+                return handlePay(sender, args);
+            case "list":
+                return handleList(sender);
+            case "reload":
+                if (!sender.hasPermission("nfsdebt.admin")) { sender.sendMessage(msg("no_permission")); return true; }
+                plugin.getConfigManager().reload();
+                sender.sendMessage(msg("reloaded"));
+                return true;
+        }
+
+        return true;
+    }
+
+    private boolean handleRequest(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nfsdebt.borrow")) { sender.sendMessage(msg("no_permission")); return true; }
+        // New usage: /debt request <player> <amount> <interest> <days>
+        if (args.length < 5) { sender.sendMessage(msg("usage_request")); return true; }
+        if (!(sender instanceof Player requester)) { sender.sendMessage(msg("only_players")); return true; }
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        double amount;
+        double interest;
+        int days;
+        try {
+            amount = Double.parseDouble(args[2]);
+            interest = Double.parseDouble(args[3]);
+            days = Integer.parseInt(args[4]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage(msg("invalid_number"));
+            return true;
+        }
+
+        Debt d = new Debt();
+        d.setBorrowerUUID(requester.getUniqueId());
+        d.setLenderUUID(target.getUniqueId());
+        d.setAmount(amount);
+        d.setRemainingAmount(amount);
+        d.setInterestRate(interest);
+        d.setDueDate(Instant.now().plusSeconds(days * 24L * 3600L).toEpochMilli());
+        d.setPaid(false);
+
+        try {
+            int id = dao.createDebt(d);
+            sender.sendMessage(msg("request_sent").replace("{player}", target.getName() == null ? "(offline)" : target.getName()).replace("{id}", String.valueOf(id)));
+            if (target.isOnline()) {
+                var ply = target.getPlayer();
+                if (ply != null) ply.sendMessage(msg("request_received").replace("{player}", requester.getName()).replace("{id}", String.valueOf(id)));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while creating debt: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
+    }
+
+    private boolean handleAccept(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nfsdebt.loan")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (args.length < 2) { sender.sendMessage(msg("usage_accept")); return true; }
+        int id;
+        try { id = Integer.parseInt(args[1]); } catch (NumberFormatException e) { sender.sendMessage(msg("invalid_number")); return true; }
+        try {
+            Debt d = dao.getDebt(id);
+            if (d == null) { sender.sendMessage(msg("debt_not_found").replace("{id}", String.valueOf(id))); return true; }
+            // Lender is accepting -> sender should be lender
+            UUID senderUUID = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+            if (senderUUID == null || !senderUUID.equals(d.getLenderUUID())) { sender.sendMessage(msg("not_lender")); return true; }
+
+            // Transfer funds via CoinsEngine
+            double balance = coins.getBalance(d.getLenderUUID());
+            if (balance < d.getAmount()) { sender.sendMessage(msg("insufficient_funds")); return true; }
+            boolean withdrawn = coins.withdraw(d.getLenderUUID(), d.getAmount());
+            if (!withdrawn) { sender.sendMessage(msg("transfer_failed")); return true; }
+            boolean deposited = coins.deposit(d.getBorrowerUUID(), d.getAmount());
+            if (!deposited) { sender.sendMessage(msg("transfer_failed")); return true; }
+
+            sender.sendMessage(msg("accepted").replace("{id}", String.valueOf(id)).replace("{lender}", sender.getName()).replace("{amount}", String.valueOf(d.getAmount())));
+            dao.updateDebt(d); // no change except maybe mark? keep as is
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while accepting debt: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
+    }
+
+    private boolean handlePay(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nfsdebt.borrow")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (args.length < 3) { sender.sendMessage(msg("usage_pay")); return true; }
+        int id; double amount;
+        try { id = Integer.parseInt(args[1]); amount = Double.parseDouble(args[2]); } catch (NumberFormatException e) { sender.sendMessage(msg("invalid_number")); return true; }
+        try {
+            Debt d = dao.getDebt(id);
+            if (d == null) { sender.sendMessage(msg("debt_not_found").replace("{id}", String.valueOf(id))); return true; }
+            UUID payer = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
+            if (payer == null || !payer.equals(d.getBorrowerUUID())) { sender.sendMessage(msg("not_borrower")); return true; }
+            double balance = coins.getBalance(payer);
+            if (balance < amount) { sender.sendMessage(msg("insufficient_funds")); return true; }
+            boolean withdrawn = coins.withdraw(payer, amount);
+            if (!withdrawn) { sender.sendMessage(msg("transfer_failed")); return true; }
+            boolean deposited = coins.deposit(d.getLenderUUID(), amount);
+            if (!deposited) { sender.sendMessage(msg("transfer_failed")); return true; }
+
+            d.setRemainingAmount(Math.max(0.0, d.getRemainingAmount() - amount));
+            if (d.getRemainingAmount() <= 0.0) d.setPaid(true);
+            dao.updateDebt(d);
+            sender.sendMessage(msg("paid").replace("{remaining}", String.valueOf(d.getRemainingAmount())));
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while paying debt: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
+    }
+
+    private boolean handleList(CommandSender sender) {
+        if (!sender.hasPermission("nfsdebt.view")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (!(sender instanceof Player)) { sender.sendMessage(msg("only_players")); return true; }
+        Player p = (Player) sender;
+        try {
+            List<Debt> list = dao.listDebtsFor(p.getUniqueId());
+            sender.sendMessage(msg("list_header"));
+            for (Debt d : list) {
+                String borrowerName = Bukkit.getOfflinePlayer(d.getBorrowerUUID()).getName();
+                String lenderName = Bukkit.getOfflinePlayer(d.getLenderUUID()).getName();
+                sender.sendMessage(msg("list_entry")
+                        .replace("{id}", String.valueOf(d.getDebtID()))
+                        .replace("{borrower}", borrowerName == null ? "(unknown)" : borrowerName)
+                        .replace("{lender}", lenderName == null ? "(unknown)" : lenderName)
+                        .replace("{remaining}", String.valueOf(d.getRemainingAmount()))
+                        .replace("{due}", String.valueOf(d.getDueDate())));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while listing debts: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
+    }
+}
