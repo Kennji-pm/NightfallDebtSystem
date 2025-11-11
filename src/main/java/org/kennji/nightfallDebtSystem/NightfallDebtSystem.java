@@ -44,6 +44,7 @@ public final class NightfallDebtSystem extends JavaPlugin {
         this.debtDAO = new DebtDAO(databaseManager);
         this.coinsAdapter = new CoinsEngineAdapter(this);
         getLogger().log(Level.INFO, "  ✓ Hooked into CoinsEngine!");
+        getLogger().log(Level.INFO, "  ✓ Registered currency: "+ coinsAdapter.getCurrencyName());
 
         var debtCommandExecutor = new DebtCommand(this, debtDAO, coinsAdapter);
         var cmd = this.getCommand("debt");

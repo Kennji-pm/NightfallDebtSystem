@@ -34,7 +34,7 @@ public class OverdueTask implements Runnable {
 
             PotionEffectType pet = PotionEffectType.getByName(effectName);
             if (pet == null) {
-                plugin.getLogger().warning("Invalid potion effect type specified in config: " + effectName + ". Defaulting to SLOW.");
+                plugin.getLogger().warning("Invalid potion effect type specified in config: " + effectName + ". Defaulting to SLOWNESS.");
                 pet = PotionEffectType.SLOWNESS; // Fallback to a default if the configured effect is invalid
             }
 

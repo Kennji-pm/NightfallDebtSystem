@@ -12,6 +12,8 @@ Chào mừng bạn đến với NightfallDebtSystem! Plugin này cho phép ngư�
     *   [`/debt accept`](#debt-accept)
     *   [`/debt pay`](#debt-pay)
     *   [`/debt list`](#debt-list)
+    *   [`/debt delete`](#debt-delete)
+    *   [`/debt detail`](#debt-detail)
     *   [`/debt reload`](#debt-reload)
 3.  [Ví Dụ Sử Dụng](#ví-dụ-sử-dụng)
 4.  [Quyền Hạn (Permissions)](#quyền-hạn-permissions)
@@ -69,6 +71,18 @@ Dưới đây là danh sách các lệnh chính mà bạn có thể sử dụng 
 *   **Mô tả**: Hiển thị danh sách tất cả các khoản nợ liên quan đến bạn (cả với tư cách người vay và người cho vay).
 *   **Ví dụ**: `/debt list`
 
+### `/debt delete <ID khoản nợ>` {#debt-delete}
+
+*   **Mô tả**: Xóa một khoản nợ khỏi cơ sở dữ liệu. Chỉ dành cho quản trị viên.
+    *   `<ID khoản nợ>`: ID của khoản nợ bạn muốn xóa.
+*   **Ví dụ**: `/debt delete 123`
+
+### `/debt detail <người chơi>` {#debt-detail}
+
+*   **Mô tả**: Hiển thị chi tiết tất cả các khoản nợ liên quan đến một người chơi cụ thể. Chỉ dành cho quản trị viên.
+    *   `<người chơi>`: Tên của người chơi bạn muốn xem chi tiết nợ.
+*   **Ví dụ**: `/debt detail Kennji`
+
 ### `/debt reload` {#debt-reload}
 
 *   **Mô tả**: Tải lại cấu hình và tin nhắn của plugin. Chỉ dành cho quản trị viên.
@@ -98,7 +112,7 @@ Dưới đây là danh sách các lệnh chính mà bạn có thể sử dụng 
 *   `nfsdebt.borrow`: Cho phép người chơi yêu cầu và thanh toán nợ.
 *   `nfsdebt.loan`: Cho phép người chơi chấp nhận yêu cầu nợ.
 *   `nfsdebt.view`: Cho phép người chơi xem danh sách nợ của mình.
-*   `nfsdebt.admin`: Cho phép quản trị viên sử dụng lệnh `/debt reload`.
+*   `nfsdebt.admin`: Cho phép quản trị viên sử dụng các lệnh `/debt reload`, `/debt delete`, và `/debt detail`.
 
 ---
 

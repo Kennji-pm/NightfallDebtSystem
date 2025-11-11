@@ -80,6 +80,14 @@ public class DebtDAO {
         return out;
     }
 
+    public void deleteDebt(int id) throws SQLException {
+        String sql = "DELETE FROM debts WHERE debtID = ?";
+        try (Connection c = db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.executeUpdate();
+        }
+    }
+
     private Debt map(ResultSet rs) throws SQLException {
         Debt d = new Debt();
         d.setDebtID(rs.getInt("debtID"));

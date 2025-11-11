@@ -18,8 +18,17 @@ public class ConfigManager {
     }
 
     public void saveDefaultConfigs() {
-        plugin.saveResource("config.yml", false);
-        plugin.saveResource("messages.yml", false);
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        File configFile = new File(plugin.getDataFolder(), "config.yml");
+        if (!configFile.exists()) {
+            plugin.saveResource("config.yml", false);
+        }
+        File messagesFile = new File(plugin.getDataFolder(), "messages.yml");
+        if (!messagesFile.exists()) {
+            plugin.saveResource("messages.yml", false);
+        }
     }
 
     public void reload() {

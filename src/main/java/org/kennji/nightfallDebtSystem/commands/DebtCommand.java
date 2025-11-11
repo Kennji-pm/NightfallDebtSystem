@@ -52,6 +52,10 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
                 return handlePay(sender, args);
             case "list":
                 return handleList(sender);
+            case "delete":
+                return handleDelete(sender, args);
+            case "detail":
+                return handleDetail(sender, args);
             case "reload":
                 if (!sender.hasPermission("nfsdebt.admin")) { sender.sendMessage(msg("no_permission")); return true; }
                 plugin.getConfigManager().reload();
@@ -61,6 +65,64 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(msg("unknown_command")); // Message for unknown subcommand
                 return true;
         }
+    }
+
+    private boolean handleDelete(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nfsdebt.admin")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (args.length < 2) { sender.sendMessage(msg("usage_delete")); return true; }
+        int id;
+        try { id = Integer.parseInt(args[1]); } catch (NumberFormatException e) { sender.sendMessage(msg("invalid_number")); return true; }
+
+        try {
+            Debt d = dao.getDebt(id);
+            if (d == null) { sender.sendMessage(msg("debt_not_found").replace("{id}", String.valueOf(id))); return true; }
+
+            dao.deleteDebt(id);
+            sender.sendMessage(msg("debt_deleted").replace("{id}", String.valueOf(id)));
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while deleting debt: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
+    }
+
+    private boolean handleDetail(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("nfsdebt.admin")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (args.length < 2) { sender.sendMessage(msg("usage_detail")); return true; }
+
+        OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+        if (target == null || target.getUniqueId() == null) {
+            sender.sendMessage(msg("player_not_found").replace("{player}", args[1]));
+            return true;
+        }
+
+        try {
+            List<Debt> debts = dao.listDebtsFor(target.getUniqueId());
+            if (debts.isEmpty()) {
+                sender.sendMessage(msg("no_debts_found_for_player").replace("{player}", target.getName() == null ? "(unknown)" : target.getName()));
+                return true;
+            }
+
+            sender.sendMessage(msg("detail_header").replace("{player}", target.getName() == null ? "(unknown)" : target.getName()));
+            for (Debt d : debts) {
+                String borrowerName = Bukkit.getOfflinePlayer(d.getBorrowerUUID()).getName();
+                String lenderName = Bukkit.getOfflinePlayer(d.getLenderUUID()).getName();
+                sender.sendMessage(msg("detail_entry")
+                        .replace("{id}", String.valueOf(d.getDebtID()))
+                        .replace("{borrower}", borrowerName == null ? "(unknown)" : borrowerName)
+                        .replace("{lender}", lenderName == null ? "(unknown)" : lenderName)
+                        .replace("{amount}", String.valueOf(d.getAmount()))
+                        .replace("{remaining}", String.valueOf(d.getRemainingAmount()))
+                        .replace("{interest}", String.valueOf(d.getInterestRate()))
+                        .replace("{due}", String.valueOf(d.getDueDate()))
+                        .replace("{paid}", d.isPaid() ? msg("yes") : msg("no"))
+                        .replace("{accepted}", d.isAccepted() ? msg("yes") : msg("no")));
+            }
+        } catch (SQLException e) {
+            plugin.getLogger().severe("Database error while getting debt details: " + e.getMessage());
+            sender.sendMessage(msg("db_error"));
+        }
+        return true;
     }
 
     private boolean handleRequest(CommandSender sender, String[] args) {
@@ -224,7 +286,11 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
             if (sender.hasPermission("nfsdebt.loan")) subcommands.add("accept");
             if (sender.hasPermission("nfsdebt.borrow")) subcommands.add("pay");
             if (sender.hasPermission("nfsdebt.view")) subcommands.add("list");
-            if (sender.hasPermission("nfsdebt.admin")) subcommands.add("reload");
+            if (sender.hasPermission("nfsdebt.admin")) {
+                subcommands.add("delete");
+                subcommands.add("detail");
+                subcommands.add("reload");
+            }
             return subcommands.stream()
                     .filter(s -> s.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
@@ -267,6 +333,14 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
                             plugin.getLogger().severe("Database error during tab completion for pay: " + e.getMessage());
                             return Collections.emptyList();
                         }
+                    }
+                    break;
+                case "detail":
+                    if (args.length == 2 && sender.hasPermission("nfsdebt.admin")) { // /debt detail <player>
+                        return Bukkit.getOnlinePlayers().stream()
+                                .map(Player::getName)
+                                .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                                .collect(Collectors.toList());
                     }
                     break;
             }

@@ -20,6 +20,10 @@ public class CoinsEngineAdapter {
         this.currency = CoinsEngineAPI.getCurrency(plugin.getConfigManager().getConfig().getString("default-currency", "coins"));
     }
 
+    public String getCurrencyName(){
+        return plugin.getConfigManager().getConfig().getString("default-currency", "coins");
+    }
+
     public double getBalance(UUID player) {
         OfflinePlayer p = Bukkit.getOfflinePlayer(player);
         return (int) CoinsEngineAPI.getBalance(p.getUniqueId(), currency);
