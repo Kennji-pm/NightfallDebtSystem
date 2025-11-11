@@ -15,7 +15,7 @@ default-currency: 'coins'
 
 # Debuff settings applied to overdue borrowers
 debuff:
-  effect: SLOW
+  effect: SLOWNESS
   level: 1
   duration-ticks: 200
 

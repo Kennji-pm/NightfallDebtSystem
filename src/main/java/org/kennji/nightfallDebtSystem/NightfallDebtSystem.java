@@ -45,8 +45,12 @@ public final class NightfallDebtSystem extends JavaPlugin {
         this.coinsAdapter = new CoinsEngineAdapter(this);
         getLogger().log(Level.INFO, "  ✓ Hooked into CoinsEngine!");
 
+        var debtCommandExecutor = new DebtCommand(this, debtDAO, coinsAdapter);
         var cmd = this.getCommand("debt");
-        if (cmd != null) cmd.setExecutor(new DebtCommand(this, debtDAO, coinsAdapter));
+        if (cmd != null) {
+            cmd.setExecutor(debtCommandExecutor);
+            cmd.setTabCompleter(debtCommandExecutor);
+        }
 
         int interval = getConfig().getInt("scheduler-interval-ticks", 900);
         getLogger().log(Level.INFO, "  ⏱ Scheduling overdue task every " + interval + " ticks");

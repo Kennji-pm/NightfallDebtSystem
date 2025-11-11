@@ -1,6 +1,7 @@
 name: NightfallDebtSystem
 version: '${project.version}'
 main: org.kennji.nightfallDebtSystem.NightfallDebtSystem
+description: "Hệ thống quản lý nợ cho máy chủ Minecraft của bạn. Cho phép người chơi vay và cho vay tiền, với tính năng lãi suất và cảnh báo quá hạn."
 api-version: '1.21'
 authors: [ _kennji ]
 depend: [CoinsEngine]
@@ -15,4 +16,3 @@ commands:
     description: Main command for Nightfall Debt System
     aliases: [nfsdebt]
     usage: /<command> <subcommand>
-

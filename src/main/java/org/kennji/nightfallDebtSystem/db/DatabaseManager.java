@@ -57,7 +57,8 @@ public class DatabaseManager {
                     "remainingAmount DOUBLE NOT NULL, " +
                     "dueDate BIGINT NOT NULL, " +
                     "interestRate DOUBLE NOT NULL, " +
-                    "isPaid INTEGER NOT NULL DEFAULT 0" +
+                    "isPaid INTEGER NOT NULL DEFAULT 0, " +
+                    "isAccepted INTEGER NOT NULL DEFAULT 0" +
                     ")");
         }
     }
@@ -70,4 +71,3 @@ public class DatabaseManager {
         if (ds != null) ds.close();
     }
 }
-

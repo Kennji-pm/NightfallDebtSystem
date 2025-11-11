@@ -33,6 +33,11 @@ public class OverdueTask implements Runnable {
             double percent = cfg.getDouble("overdue-interest-percent", 1.0);
 
             PotionEffectType pet = PotionEffectType.getByName(effectName);
+            if (pet == null) {
+                plugin.getLogger().warning("Invalid potion effect type specified in config: " + effectName + ". Defaulting to SLOW.");
+                pet = PotionEffectType.SLOWNESS; // Fallback to a default if the configured effect is invalid
+            }
+
             for (Debt d : overdue) {
                 // apply interest
                 double add = d.getRemainingAmount() * (percent / 100.0);

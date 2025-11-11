@@ -11,8 +11,11 @@ public class Debt {
     private long dueDate;
     private double interestRate;
     private boolean isPaid;
+    private boolean isAccepted; // New field
 
-    public Debt() {}
+    public Debt() {
+        this.isAccepted = false; // Default to not accepted
+    }
 
     // getters and setters
     public int getDebtID() { return debtID; }
@@ -31,5 +34,8 @@ public class Debt {
     public void setInterestRate(double interestRate) { this.interestRate = interestRate; }
     public boolean isPaid() { return isPaid; }
     public void setPaid(boolean paid) { isPaid = paid; }
-}
 
+    // New getter and setter for isAccepted
+    public boolean isAccepted() { return isAccepted; }
+    public void setAccepted(boolean accepted) { isAccepted = accepted; }
+}

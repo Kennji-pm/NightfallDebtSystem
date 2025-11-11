@@ -15,7 +15,7 @@ public class DebtDAO {
     }
 
     public int createDebt(Debt d) throws SQLException {
-        String sql = "INSERT INTO debts (borrowerUUID, lenderUUID, amount, remainingAmount, dueDate, interestRate, isPaid) VALUES (?,?,?,?,?,?,?)";
+        String sql = "INSERT INTO debts (borrowerUUID, lenderUUID, amount, remainingAmount, dueDate, interestRate, isPaid, isAccepted) VALUES (?,?,?,?,?,?,?,?)";
         try (Connection c = db.getConnection(); PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, d.getBorrowerUUID().toString());
             ps.setString(2, d.getLenderUUID().toString());
@@ -24,6 +24,7 @@ public class DebtDAO {
             ps.setLong(5, d.getDueDate());
             ps.setDouble(6, d.getInterestRate());
             ps.setInt(7, d.isPaid() ? 1 : 0);
+            ps.setInt(8, d.isAccepted() ? 1 : 0); // Add isAccepted
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) {
                 if (rs.next()) return rs.getInt(1);
@@ -57,11 +58,12 @@ public class DebtDAO {
     }
 
     public void updateDebt(Debt d) throws SQLException {
-        String sql = "UPDATE debts SET remainingAmount = ?, isPaid = ? WHERE debtID = ?";
+        String sql = "UPDATE debts SET remainingAmount = ?, isPaid = ?, isAccepted = ? WHERE debtID = ?";
         try (Connection c = db.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
             ps.setDouble(1, d.getRemainingAmount());
             ps.setInt(2, d.isPaid() ? 1 : 0);
-            ps.setInt(3, d.getDebtID());
+            ps.setInt(3, d.isAccepted() ? 1 : 0); // Add isAccepted
+            ps.setInt(4, d.getDebtID());
             ps.executeUpdate();
         }
     }
@@ -88,7 +90,7 @@ public class DebtDAO {
         d.setDueDate(rs.getLong("dueDate"));
         d.setInterestRate(rs.getDouble("interestRate"));
         d.setPaid(rs.getInt("isPaid") != 0);
+        d.setAccepted(rs.getInt("isAccepted") != 0); // Retrieve isAccepted
         return d;
     }
 }
-

@@ -5,23 +5,28 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
 import org.bukkit.entity.Player;
 import org.kennji.nightfallDebtSystem.CoinsEngineAdapter;
+import org.kennji.nightfallDebtSystem.NightfallDebtSystem;
 import org.kennji.nightfallDebtSystem.db.DebtDAO;
 import org.kennji.nightfallDebtSystem.api.Debt;
 import org.kennji.nightfallDebtSystem.util.ColorUtils;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-public class DebtCommand implements CommandExecutor {
-    private final org.kennji.nightfallDebtSystem.NightfallDebtSystem plugin;
+public class DebtCommand implements CommandExecutor, TabCompleter {
+    private final NightfallDebtSystem plugin;
     private final DebtDAO dao;
     private final CoinsEngineAdapter coins;
 
-    public DebtCommand(org.kennji.nightfallDebtSystem.NightfallDebtSystem plugin, DebtDAO dao, CoinsEngineAdapter coins) {
+    public DebtCommand(NightfallDebtSystem plugin, DebtDAO dao, CoinsEngineAdapter coins) {
         this.plugin = plugin;
         this.dao = dao;
         this.coins = coins;
@@ -34,7 +39,7 @@ public class DebtCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage(msg("list_header"));
+            sender.sendMessage(msg("usage_main")); // Provide a main usage message
             return true;
         }
 
@@ -52,9 +57,10 @@ public class DebtCommand implements CommandExecutor {
                 plugin.getConfigManager().reload();
                 sender.sendMessage(msg("reloaded"));
                 return true;
+            default:
+                sender.sendMessage(msg("unknown_command")); // Message for unknown subcommand
+                return true;
         }
-
-        return true;
     }
 
     private boolean handleRequest(CommandSender sender, String[] args) {
@@ -63,6 +69,12 @@ public class DebtCommand implements CommandExecutor {
         if (args.length < 5) { sender.sendMessage(msg("usage_request")); return true; }
         if (!(sender instanceof Player requester)) { sender.sendMessage(msg("only_players")); return true; }
         OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
+
+        if (requester.getUniqueId().equals(target.getUniqueId())) {
+            sender.sendMessage(msg("cannot_request_self"));
+            return true;
+        }
+
         double amount;
         double interest;
         int days;
@@ -106,9 +118,24 @@ public class DebtCommand implements CommandExecutor {
         try {
             Debt d = dao.getDebt(id);
             if (d == null) { sender.sendMessage(msg("debt_not_found").replace("{id}", String.valueOf(id))); return true; }
-            // Lender is accepting -> sender should be lender
-            UUID senderUUID = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
-            if (senderUUID == null || !senderUUID.equals(d.getLenderUUID())) { sender.sendMessage(msg("not_lender")); return true; }
+            if (!(sender instanceof Player)) { sender.sendMessage(msg("only_players")); return true; }
+            Player playerSender = (Player) sender;
+
+            // Check if the sender is the lender of the debt
+            if (!playerSender.getUniqueId().equals(d.getLenderUUID())) {
+                sender.sendMessage(msg("not_lender_for_accept").replace("{id}", String.valueOf(id)));
+                return true;
+            }
+
+            // Check if the debt is already accepted or paid
+            if (d.isAccepted()) {
+                sender.sendMessage(msg("debt_already_accepted").replace("{id}", String.valueOf(id)));
+                return true;
+            }
+            if (d.isPaid()) {
+                sender.sendMessage(msg("debt_already_paid").replace("{id}", String.valueOf(id)));
+                return true;
+            }
 
             // Transfer funds via CoinsEngine
             double balance = coins.getBalance(d.getLenderUUID());
@@ -118,8 +145,14 @@ public class DebtCommand implements CommandExecutor {
             boolean deposited = coins.deposit(d.getBorrowerUUID(), d.getAmount());
             if (!deposited) { sender.sendMessage(msg("transfer_failed")); return true; }
 
+            d.setAccepted(true); // Mark debt as accepted
+            dao.updateDebt(d);
             sender.sendMessage(msg("accepted").replace("{id}", String.valueOf(id)).replace("{lender}", sender.getName()).replace("{amount}", String.valueOf(d.getAmount())));
-            dao.updateDebt(d); // no change except maybe mark? keep as is
+            OfflinePlayer borrower = Bukkit.getOfflinePlayer(d.getBorrowerUUID());
+            if (borrower.isOnline()) {
+                var ply = borrower.getPlayer();
+                if (ply != null) ply.sendMessage(msg("debt_accepted_by_lender").replace("{id}", String.valueOf(id)).replace("{lender}", sender.getName()).replace("{amount}", String.valueOf(d.getAmount())));
+            }
         } catch (SQLException e) {
             plugin.getLogger().severe("Database error while accepting debt: " + e.getMessage());
             sender.sendMessage(msg("db_error"));
@@ -161,6 +194,10 @@ public class DebtCommand implements CommandExecutor {
         Player p = (Player) sender;
         try {
             List<Debt> list = dao.listDebtsFor(p.getUniqueId());
+            if (list.isEmpty()) {
+                sender.sendMessage(msg("no_debts_found"));
+                return true;
+            }
             sender.sendMessage(msg("list_header"));
             for (Debt d : list) {
                 String borrowerName = Bukkit.getOfflinePlayer(d.getBorrowerUUID()).getName();
@@ -177,5 +214,63 @@ public class DebtCommand implements CommandExecutor {
             sender.sendMessage(msg("db_error"));
         }
         return true;
+    }
+
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            List<String> subcommands = new ArrayList<>();
+            if (sender.hasPermission("nfsdebt.borrow")) subcommands.add("request");
+            if (sender.hasPermission("nfsdebt.loan")) subcommands.add("accept");
+            if (sender.hasPermission("nfsdebt.borrow")) subcommands.add("pay");
+            if (sender.hasPermission("nfsdebt.view")) subcommands.add("list");
+            if (sender.hasPermission("nfsdebt.admin")) subcommands.add("reload");
+            return subcommands.stream()
+                    .filter(s -> s.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        } else if (args.length > 1) {
+            switch (args[0].toLowerCase()) {
+                case "request":
+                    if (args.length == 2) { // /debt request <player>
+                        return Bukkit.getOnlinePlayers().stream()
+                                .map(Player::getName)
+                                .filter(name -> name.toLowerCase().startsWith(args[1].toLowerCase()))
+                                .collect(Collectors.toList());
+                    }
+                    // For amount, interest, days, no specific tab completion needed, maybe suggest defaults or ranges
+                    break;
+                case "accept":
+                    if (args.length == 2 && sender instanceof Player) { // /debt accept <id>
+                        Player p = (Player) sender;
+                        try {
+                            return dao.listDebtsFor(p.getUniqueId()).stream()
+                                    .filter(debt -> debt.getLenderUUID().equals(p.getUniqueId()) && !debt.isAccepted() && !debt.isPaid())
+                                    .map(debt -> String.valueOf(debt.getDebtID()))
+                                    .filter(id -> id.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                        } catch (SQLException e) {
+                            plugin.getLogger().severe("Database error during tab completion for accept: " + e.getMessage());
+                            return Collections.emptyList();
+                        }
+                    }
+                    break;
+                case "pay":
+                    if (args.length == 2 && sender instanceof Player) { // /debt pay <id>
+                        Player p = (Player) sender;
+                        try {
+                            return dao.listDebtsFor(p.getUniqueId()).stream()
+                                    .filter(debt -> debt.getBorrowerUUID().equals(p.getUniqueId()) && debt.isAccepted() && !debt.isPaid())
+                                    .map(debt -> String.valueOf(debt.getDebtID()))
+                                    .filter(id -> id.startsWith(args[1]))
+                                    .collect(Collectors.toList());
+                        } catch (SQLException e) {
+                            plugin.getLogger().severe("Database error during tab completion for pay: " + e.getMessage());
+                            return Collections.emptyList();
+                        }
+                    }
+                    break;
+            }
+        }
+        return Collections.emptyList();
     }
 }
