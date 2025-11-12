@@ -126,7 +126,7 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleRequest(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("nfsdebt.borrow")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (!sender.hasPermission("nfsdebt.user")) { sender.sendMessage(msg("no_permission")); return true; }
         // New usage: /debt request <player> <amount> <interest> <days>
         if (args.length < 5) { sender.sendMessage(msg("usage_request")); return true; }
         if (!(sender instanceof Player requester)) { sender.sendMessage(msg("only_players")); return true; }
@@ -173,7 +173,7 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleAccept(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("nfsdebt.loan")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (!sender.hasPermission("nfsdebt.user")) { sender.sendMessage(msg("no_permission")); return true; }
         if (args.length < 2) { sender.sendMessage(msg("usage_accept")); return true; }
         int id;
         try { id = Integer.parseInt(args[1]); } catch (NumberFormatException e) { sender.sendMessage(msg("invalid_number")); return true; }
@@ -223,7 +223,7 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handlePay(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("nfsdebt.borrow")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (!sender.hasPermission("nfsdebt.user")) { sender.sendMessage(msg("no_permission")); return true; }
         if (args.length < 3) { sender.sendMessage(msg("usage_pay")); return true; }
         int id; double amount;
         try { id = Integer.parseInt(args[1]); amount = Double.parseDouble(args[2]); } catch (NumberFormatException e) { sender.sendMessage(msg("invalid_number")); return true; }
@@ -251,7 +251,7 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
     }
 
     private boolean handleList(CommandSender sender) {
-        if (!sender.hasPermission("nfsdebt.view")) { sender.sendMessage(msg("no_permission")); return true; }
+        if (!sender.hasPermission("nfsdebt.user")) { sender.sendMessage(msg("no_permission")); return true; }
         if (!(sender instanceof Player)) { sender.sendMessage(msg("only_players")); return true; }
         Player p = (Player) sender;
         try {
@@ -282,10 +282,12 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> subcommands = new ArrayList<>();
-            if (sender.hasPermission("nfsdebt.borrow")) subcommands.add("request");
-            if (sender.hasPermission("nfsdebt.loan")) subcommands.add("accept");
-            if (sender.hasPermission("nfsdebt.borrow")) subcommands.add("pay");
-            if (sender.hasPermission("nfsdebt.view")) subcommands.add("list");
+            if (sender.hasPermission("nfsdebt.user")) {
+                subcommands.add("request");
+                subcommands.add("accept");
+                subcommands.add("pay");
+                subcommands.add("list");
+            }
             if (sender.hasPermission("nfsdebt.admin")) {
                 subcommands.add("delete");
                 subcommands.add("detail");

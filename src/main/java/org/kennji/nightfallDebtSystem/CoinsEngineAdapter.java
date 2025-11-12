@@ -21,7 +21,10 @@ public class CoinsEngineAdapter {
     }
 
     public String getCurrencyName(){
-        return plugin.getConfigManager().getConfig().getString("default-currency", "coins");
+        if (CoinsEngineAPI.hasCurrency(getCurrencyName())){
+            return plugin.getConfigManager().getConfig().getString("default-currency", "coins");
+        }
+        return null;
     }
 
     public double getBalance(UUID player) {

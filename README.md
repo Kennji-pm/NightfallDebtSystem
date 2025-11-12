@@ -21,22 +21,22 @@
   - **Mô tả**: Gửi yêu cầu nợ từ người hiện tại tới `<player>`.
   - **Ví dụ**: `/debt request Notch 100 5 7`
     - Tạo khoản nợ 100 với lãi suất 5% (phần trăm theo trường `interestRate` lưu), hạn trả sau 7 ngày.
-  - **Quyền cần có**: `nfsdebt.borrow`
+  - **Quyền cần có**: `nfsdebt.user`
 
 - `/debt accept <debtID>`
   - **Mô tả**: Người cho vay chấp nhận khoản nợ đã được yêu cầu; plugin sẽ rút tiền từ người cho vay và gửi cho người vay (thông qua CoinsEngine).
   - **Ví dụ**: `/debt accept 12`
-  - **Quyền cần có**: `nfsdebt.loan`
+  - **Quyền cần có**: `nfsdebt.user`
 
 - `/debt pay <debtID> <amount>`
   - **Mô tả**: Người vay trả một phần hoặc toàn bộ nợ.
   - **Ví dụ**: `/debt pay 12 50`
-  - **Quyền cần có**: `nfsdebt.borrow`
+  - **Quyền cần có**: `nfsdebt.user`
 
 - `/debt list`
   - **Mô tả**: Liệt kê tất cả khoản nợ liên quan đến người dùng (là borrower hoặc lender).
   - **Ví dụ**: `/debt list`
-  - **Quyền cần có**: `nfsdebt.view`
+  - **Quyền cần có**: `nfsdebt.user`
 
 - `/debt reload`
   - **Mô tả**: Tải lại `config.yml` và `messages.yml` (các thông báo và cấu hình sẽ được áp dụng lại).
@@ -46,12 +46,8 @@
 - `interest` thường lưu làm hệ số/phần trăm (plugin lưu gốc như đã truyền; định nghĩa & hiển thị có thể tuỳ chỉnh trong `messages.yml`).
 
 ## Danh sách Permissions (quyền) và mô tả
-- `nfsdebt.borrow`
-  - **Mô tả**: Cho phép gửi yêu cầu nợ và thực hiện trả nợ (dành cho borrower).
-- `nfsdebt.loan`
-  - **Mô tả**: Cho phép chấp nhận khoản nợ và chuyển tiền sang borrower (dành cho lender).
-- `nfsdebt.view`
-  - **Mô tả**: Cho phép xem danh sách các khoản nợ liên quan (list).
+- `nfsdebt.user`
+  - **Mô tả**: Cho phép gửi yêu cầu nợ, chấp nhận khoản nợ, thực hiện trả nợ và xem danh sách các khoản nợ liên quan.
 - `nfsdebt.admin`
   - **Mô tả**: Quyền quản trị plugin: reload cấu hình/messages và các lệnh admin khác (nếu được thêm sau này).
 

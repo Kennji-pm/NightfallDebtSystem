@@ -1,6 +1,6 @@
 # Hướng Dẫn Sử Dụng Plugin NightfallDebtSystem
 
-Chào mừng bạn đến với NightfallDebtSystem! Plugin này cho phép người chơi quản lý các khoản nợ trong game một cách dễ dàng, bao gồm yêu cầu nợ, chấp nhận nợ, thanh toán và xem danh sách nợ.
+NightfallDebtSystem! Plugin cho phép người chơi quản lý các khoản nợ trong game một cách dễ dàng, bao gồm yêu cầu nợ, chấp nhận nợ, thanh toán và xem danh sách nợ.
 
 ---
 
@@ -23,7 +23,7 @@ Chào mừng bạn đến với NightfallDebtSystem! Plugin này cho phép ngư�
 
 ## 🌟 Giới Thiệu
 
-NightfallDebtSystem là một plugin quản lý nợ đơn giản nhưng hiệu quả cho máy chủ Minecraft của bạn. Nó tích hợp với hệ thống tiền tệ của máy chủ để cho phép người chơi vay và cho vay tiền, với các tính năng như lãi suất và ngày đáo hạn.
+NightfallDebtSystem là một plugin quản lý nợ đơn giản cho máy chủ Minecraft của bạn. Cho phép người chơi vay và cho vay tiền, với các tính năng như lãi suất và ngày đáo hạn.
 
 ---
 
@@ -109,9 +109,7 @@ Dưới đây là danh sách các lệnh chính mà bạn có thể sử dụng 
 
 ## 🔒 Quyền Hạn (Permissions)
 
-*   `nfsdebt.borrow`: Cho phép người chơi yêu cầu và thanh toán nợ.
-*   `nfsdebt.loan`: Cho phép người chơi chấp nhận yêu cầu nợ.
-*   `nfsdebt.view`: Cho phép người chơi xem danh sách nợ của mình.
+*   `nfsdebt.user`: Cho phép người chơi yêu cầu nợ, chấp nhận yêu cầu nợ, thanh toán nợ và xem danh sách nợ của mình.
 *   `nfsdebt.admin`: Cho phép quản trị viên sử dụng các lệnh `/debt reload`, `/debt delete`, và `/debt detail`.
 
 ---
