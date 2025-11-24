@@ -9,6 +9,8 @@ import org.kennji.nightfallDebtSystem.db.DebtDAO;
 import org.kennji.nightfallDebtSystem.placeholder.PlaceholderAPIExpansion;
 import org.kennji.nightfallDebtSystem.tasks.OverdueTask;
 
+import org.bukkit.scheduler.BukkitTask;
+
 import java.util.logging.Level;
 
 public final class NightfallDebtSystem extends JavaPlugin {
@@ -17,6 +19,7 @@ public final class NightfallDebtSystem extends JavaPlugin {
     private DatabaseManager databaseManager;
     private DebtDAO debtDAO;
     private CoinsEngineAdapter coinsAdapter;
+    private BukkitTask overdueTask;
 
     @Override
     public void onEnable() {
@@ -34,6 +37,7 @@ public final class NightfallDebtSystem extends JavaPlugin {
 
         this.configManager = new ConfigManager(this);
         this.databaseManager = new DatabaseManager(this);
+        
         try {
             databaseManager.init();
         } catch (Exception e) {
@@ -44,7 +48,11 @@ public final class NightfallDebtSystem extends JavaPlugin {
         this.debtDAO = new DebtDAO(databaseManager);
         this.coinsAdapter = new CoinsEngineAdapter(this);
         getLogger().log(Level.INFO, "  ✓ Hooked into CoinsEngine!");
-        getLogger().log(Level.INFO, "  ✓ Registered currency: "+ coinsAdapter.getCurrencyName());
+        if (coinsAdapter.getCurrencyName() != null) {
+            getLogger().log(Level.INFO, "  ✓ Registered currency: " + coinsAdapter.getCurrencyName());
+        } else {
+            getLogger().log(Level.INFO, "CoinsEngine currency not set in config or not found!");
+        }
 
         var debtCommandExecutor = new DebtCommand(this, debtDAO, coinsAdapter);
         var cmd = this.getCommand("debt");
@@ -55,7 +63,7 @@ public final class NightfallDebtSystem extends JavaPlugin {
 
         int interval = getConfig().getInt("scheduler-interval-ticks", 900);
         getLogger().log(Level.INFO, "  ⏱ Scheduling overdue task every " + interval + " ticks");
-        this.getServer().getScheduler().runTaskTimer(this, new OverdueTask(this, debtDAO), interval, interval);
+        this.overdueTask = this.getServer().getScheduler().runTaskTimer(this, new OverdueTask(this, debtDAO), interval, interval);
 
         // Register PlaceholderAPI expansion if present
         if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
@@ -76,6 +84,9 @@ public final class NightfallDebtSystem extends JavaPlugin {
     @Override
     public void onDisable() {
         // Plugin shutdown logic
+        if (overdueTask != null) {
+            overdueTask.cancel();
+        }
         if (databaseManager != null) databaseManager.close();
     }
 

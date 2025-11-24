@@ -11,6 +11,11 @@ messages:
   list_header: '&6Các khoản nợ của bạn:'
   list_entry: '&eID: {id} Người vay: {borrower} Người cho vay: {lender} Còn lại: {remaining} Hạn: {due}'
   overdue_applied: '&cĐã áp dụng quá hạn cho khoản nợ {id}. Lãi suất đã thêm: {interest}.'
+  overdue_applied_detailed: '&c🚨 KHOẢN NỢ QUÁ HẠN! 🚨\n&eID: {id} &c| &eSố tiền: {amount} &c| &eLãi đã thêm: {interest}\n&eĐã quá hạn: {overdue_time} &c| &eHạn thanh toán: {due_date}\n&eVui lòng thanh toán ngay để tránh bị phạt thêm!'
+  debt_due_warning: '&eCảnh báo! Khoản nợ {id} sẽ đến hạn {time} (ngày {date})! Số tiền còn lại: {amount}'
+  debt_due_warning_lender: '&eNhắc nhở! Khoản nợ {id} bạn cho vay sẽ đến hạn {time}.'
+  debt_overdue_lender: '&e⚠️ Thông báo! Khoản nợ {id} đã quá hạn {overdue_time}.\n&eSố tiền hiện tại: {amount} &c| &eHạn thanh toán: {due_date}'
+  debt_not_accepted: '&cKhoản nợ {id} chưa được chấp nhận. Vui lòng chờ người cho vay chấp nhận trước khi thanh toán.'
   no_permission: '&cBạn không có quyền sử dụng lệnh này.'
   usage_request: '&eCách dùng: /debt request <người chơi> <số tiền> <lãi suất> <ngày>'
   usage_accept: '&eCách dùng: /debt accept <ID khoản nợ>'
@@ -81,4 +86,3 @@ messages:
 #   detail_entry: '&eID: {id} Borrower: {borrower} Lender: {lender} Amount: {amount} Remaining: {remaining} Interest: {interest} Due: {due} Paid: {paid} Accepted: {accepted}'
 #   yes: 'Yes'
 #   no: 'No'
-

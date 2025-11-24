@@ -12,6 +12,7 @@ import org.kennji.nightfallDebtSystem.NightfallDebtSystem;
 import org.kennji.nightfallDebtSystem.db.DebtDAO;
 import org.kennji.nightfallDebtSystem.api.Debt;
 import org.kennji.nightfallDebtSystem.util.ColorUtils;
+import org.kennji.nightfallDebtSystem.util.TimeUtils;
 
 import java.sql.SQLException;
 import java.time.Instant;
@@ -24,12 +25,12 @@ import java.util.stream.Collectors;
 public class DebtCommand implements CommandExecutor, TabCompleter {
     private final NightfallDebtSystem plugin;
     private final DebtDAO dao;
-    private final CoinsEngineAdapter coins;
+    private final CoinsEngineAdapter coinsengine;
 
-    public DebtCommand(NightfallDebtSystem plugin, DebtDAO dao, CoinsEngineAdapter coins) {
+    public DebtCommand(NightfallDebtSystem plugin, DebtDAO dao, CoinsEngineAdapter coinsengine) {
         this.plugin = plugin;
         this.dao = dao;
-        this.coins = coins;
+        this.coinsengine = coinsengine;
     }
 
     private String msg(String key) {
@@ -58,7 +59,8 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
                 return handleDetail(sender, args);
             case "reload":
                 if (!sender.hasPermission("nfsdebt.admin")) { sender.sendMessage(msg("no_permission")); return true; }
-                plugin.getConfigManager().reload();
+                plugin.onDisable();
+                plugin.onEnable();
                 sender.sendMessage(msg("reloaded"));
                 return true;
             default:
@@ -107,16 +109,23 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
             for (Debt d : debts) {
                 String borrowerName = Bukkit.getOfflinePlayer(d.getBorrowerUUID()).getName();
                 String lenderName = Bukkit.getOfflinePlayer(d.getLenderUUID()).getName();
-                sender.sendMessage(msg("detail_entry")
+                String dueDateFormatted = TimeUtils.formatDueDate(d.getDueDate());
+                String remainingTime = TimeUtils.getRemainingTime(d.getDueDate());
+                String overdueStatus = TimeUtils.isOverdue(d.getDueDate()) ? "§c(QUÁ HẠN)§r " : "";
+                
+                sender.sendMessage(ColorUtils.colorize(
+                    overdueStatus + 
+                    msg("detail_entry")
                         .replace("{id}", String.valueOf(d.getDebtID()))
                         .replace("{borrower}", borrowerName == null ? "(unknown)" : borrowerName)
                         .replace("{lender}", lenderName == null ? "(unknown)" : lenderName)
                         .replace("{amount}", String.valueOf(d.getAmount()))
                         .replace("{remaining}", String.valueOf(d.getRemainingAmount()))
                         .replace("{interest}", String.valueOf(d.getInterestRate()))
-                        .replace("{due}", String.valueOf(d.getDueDate()))
+                        .replace("{due}", dueDateFormatted + " (" + remainingTime + ")")
                         .replace("{paid}", d.isPaid() ? msg("yes") : msg("no"))
-                        .replace("{accepted}", d.isAccepted() ? msg("yes") : msg("no")));
+                        .replace("{accepted}", d.isAccepted() ? msg("yes") : msg("no"))
+                ));
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Database error while getting debt details: " + e.getMessage());
@@ -157,6 +166,7 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
         d.setInterestRate(interest);
         d.setDueDate(Instant.now().plusSeconds(days * 24L * 3600L).toEpochMilli());
         d.setPaid(false);
+        d.setAccepted(false); // Ensure new debts start as not accepted
 
         try {
             int id = dao.createDebt(d);
@@ -199,13 +209,12 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
-            // Transfer funds via CoinsEngine
-            double balance = coins.getBalance(d.getLenderUUID());
-            if (balance < d.getAmount()) { sender.sendMessage(msg("insufficient_funds")); return true; }
-            boolean withdrawn = coins.withdraw(d.getLenderUUID(), d.getAmount());
-            if (!withdrawn) { sender.sendMessage(msg("transfer_failed")); return true; }
-            boolean deposited = coins.deposit(d.getBorrowerUUID(), d.getAmount());
-            if (!deposited) { sender.sendMessage(msg("transfer_failed")); return true; }
+            // Use the improved transfer method
+            boolean transferSuccess = coinsengine.transfer(d.getLenderUUID(), d.getBorrowerUUID(), d.getAmount());
+            if (!transferSuccess) {
+                sender.sendMessage(msg("transfer_failed"));
+                return true;
+            }
 
             d.setAccepted(true); // Mark debt as accepted
             dao.updateDebt(d);
@@ -232,12 +241,19 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
             if (d == null) { sender.sendMessage(msg("debt_not_found").replace("{id}", String.valueOf(id))); return true; }
             UUID payer = (sender instanceof Player) ? ((Player) sender).getUniqueId() : null;
             if (payer == null || !payer.equals(d.getBorrowerUUID())) { sender.sendMessage(msg("not_borrower")); return true; }
-            double balance = coins.getBalance(payer);
-            if (balance < amount) { sender.sendMessage(msg("insufficient_funds")); return true; }
-            boolean withdrawn = coins.withdraw(payer, amount);
-            if (!withdrawn) { sender.sendMessage(msg("transfer_failed")); return true; }
-            boolean deposited = coins.deposit(d.getLenderUUID(), amount);
-            if (!deposited) { sender.sendMessage(msg("transfer_failed")); return true; }
+            
+            // Check if debt is accepted before allowing payment
+            if (!d.isAccepted()) {
+                sender.sendMessage(msg("debt_not_accepted").replace("{id}", String.valueOf(id)));
+                return true;
+            }
+
+            // Use the improved transfer method
+            boolean transferSuccess = coinsengine.transfer(payer, d.getLenderUUID(), amount);
+            if (!transferSuccess) {
+                sender.sendMessage(msg("transfer_failed"));
+                return true;
+            }
 
             d.setRemainingAmount(Math.max(0.0, d.getRemainingAmount() - amount));
             if (d.getRemainingAmount() <= 0.0) d.setPaid(true);
@@ -264,12 +280,19 @@ public class DebtCommand implements CommandExecutor, TabCompleter {
             for (Debt d : list) {
                 String borrowerName = Bukkit.getOfflinePlayer(d.getBorrowerUUID()).getName();
                 String lenderName = Bukkit.getOfflinePlayer(d.getLenderUUID()).getName();
-                sender.sendMessage(msg("list_entry")
+                String dueDateFormatted = TimeUtils.formatDueDate(d.getDueDate());
+                String remainingTime = TimeUtils.getRemainingTime(d.getDueDate());
+                String overdueStatus = TimeUtils.isOverdue(d.getDueDate()) ? "§c(QUÁ HẠN)§r " : "";
+                
+                sender.sendMessage(ColorUtils.colorize(
+                    overdueStatus + 
+                    msg("list_entry")
                         .replace("{id}", String.valueOf(d.getDebtID()))
                         .replace("{borrower}", borrowerName == null ? "(unknown)" : borrowerName)
                         .replace("{lender}", lenderName == null ? "(unknown)" : lenderName)
                         .replace("{remaining}", String.valueOf(d.getRemainingAmount()))
-                        .replace("{due}", String.valueOf(d.getDueDate())));
+                        .replace("{due}", dueDateFormatted + " (" + remainingTime + ")")
+                ));
             }
         } catch (SQLException e) {
             plugin.getLogger().severe("Database error while listing debts: " + e.getMessage());
